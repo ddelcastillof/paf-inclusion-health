@@ -1,6 +1,6 @@
 # ----------
 # PURPOSE:
-# 
+#
 # The aim of this file is to estimate global PAFs for inclusion health groups.
 # This is work in progress with comments being improved and functions code being added continuously.
 # 
@@ -14,7 +14,11 @@
 # TO DOs: - fix missing homeless data for Argentina and Belgium.
 #         - make the age groups for the SMRs more comparable
 #         - make calendar years more comparable
-#         - 
+#         - add better data on male and female numbers for each country as at the moment assumption is based on 
+#           UK data and 80% M 20% F
+#         - add in population numbers for each country by age and sex
+#         - Model the inclusion health overlap using ? Poisson capture recapture methods and MCM simulation
+#         - Model the inclusion health distribution by age and sex for each country
 # ----------
 
 
