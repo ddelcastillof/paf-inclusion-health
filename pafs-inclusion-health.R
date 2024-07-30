@@ -67,8 +67,6 @@ smr_filter_all_cause <- input_smr_all %>%
 #create standard error estimates from confidence intervals from study
 smr_filter_all_cause$sei <- (log(smr_filter_all_cause$uci/smr_filter_all_cause$lci))/3.92
 
-
-
 # ----------
 # clean the total mortality data
 # ----------
@@ -110,7 +108,7 @@ high_income_countries_paf <- input_mortality_numbers %>%
 glimpse(input_homeless_pop)
 
 input_homeless_pop <- input_homeless_pop %>%
-  select(alpha_3_country, homeless_pop, homeless_pop_lower, homeless_pop_upper)%>%
+  select(alpha_3_country, homeless_pop, homeless_pop_lower, homeless_pop_upper) %>%
   mutate(sim_run = sim_run) %>%
   uncount(sim_run)  %>%
   rowwise() %>%
@@ -146,8 +144,6 @@ input_prison_pop <- input_prison_pop  %>%
   ) %>%
   ungroup() %>%
   select (id, prison_pert) 
-
-
 
 # ----------
 # clean the sud population data
@@ -204,9 +200,6 @@ population_numbers <-  input_population_numbers %>%
   ) %>%
   ungroup() %>%
   select (id, gen_pop_tot) 
-  
-
-
 
 # ----------
 # estimate total inclusion health for each country and calculate p
@@ -258,7 +251,6 @@ skim(high_income_countries_paf)
 # create the PAF dataset
 # ----------
 
-
 attr_deaths <- function(prop_inc_health, smr, deaths) 
   {
   (prop_inc_health * (smr - 1)) / (prop_inc_health * (smr - 1) + 1) * deaths
@@ -308,7 +300,6 @@ high_income_countries_paf <- high_income_countries_paf %>%
     mutate(
       not_attr_deaths_50 = deaths_50 - attr_deaths_50
     )
-
 
 
 # PAF
