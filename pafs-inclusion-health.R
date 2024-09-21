@@ -13,7 +13,7 @@
 # 
 # TO DOs: - fix missing homeless data for Argentina and Belgium.
 #         - make the age groups for the SMRs more comparable
-#         - make calendar years more comparable
+#         - make calendar years more comparable (separate years and decide what to do with the data, check all cause vs all cause mortality data)
 #         - add better data on male and female numbers for each country as at the moment assumption is based on 
 #           UK data and 80% M 20% F
 #         - add in population numbers for each country by age and sex
@@ -112,14 +112,18 @@ input_homeless_pop <- input_homeless_pop %>%
   mutate(sim_run = sim_run) %>%
   uncount(sim_run)  %>%
   rowwise() %>%
-  mutate(homeless_pert = rpert(1, min=homeless_pop_lower,mode=homeless_pop,max=homeless_pop_upper)) %>%
+  mutate(
+    homeless_mc_se = (homeless_pop_upper - homeless_pop_lower)/(2*1.96),
+    homeless_lambda = rnorm(1, mean = homeless_pop, sd = homeless_mc_se),
+    homeless_lambda = ifelse(homeless_lambda < 0, 0, homeless_lambda),
+    homeless_mc_poisson = rpois(1, lambda = homeless_lambda)) %>%
   group_by(alpha_3_country) %>%
   mutate(
     row_id = as.character(row_number()),
     id = str_c(alpha_3_country, row_id, sep = "-")
   ) %>%
   ungroup() %>%
-  select (id, homeless_pert) 
+  select (id, homeless_mc_poisson) 
 
 
 # ----------
@@ -136,14 +140,18 @@ input_prison_pop <- input_prison_pop  %>%
   mutate(sim_run = sim_run) %>%
   uncount(sim_run) %>%
   rowwise() %>%
-  mutate(prison_pert = rpert(1, min=prison_pop_lower,mode=prison_pop,max=prison_pop_upper)) %>%
+  mutate(
+    prison_mc_se = (prison_pop_upper - prison_pop_lower)/(2*1.96),
+    prison_lambda = rnorm(1, mean = prison_pop, sd = prison_mc_se),
+    prison_lambda = ifelse(prison_lambda < 0, 0, prison_lambda),
+    prison_mc_poisson = rpois(1, lambda = prison_lambda)) %>%
   group_by(alpha_3_country) %>%
   mutate(
     row_id = as.character(row_number()),
     id = str_c(alpha_3_country, row_id, sep = "-")
   ) %>%
   ungroup() %>%
-  select (id, prison_pert) 
+  select (id, prison_mc_poisson) 
 
 # ----------
 # clean the sud population data
@@ -166,14 +174,19 @@ input_sud_pop <- input_sud_pop %>%
   mutate(sim_run = sim_run) %>%
   uncount(sim_run) %>%
   rowwise() %>%
-  mutate(sud_pert = rpert(1, min=sud_pop_lower,mode=sud_pop,max=sud_pop_upper)) %>%
+  mutate(
+    sud_mc_se = (sud_pop_upper - sud_pop_lower)/(2*1.96),
+    sud_lambda = rnorm(1, mean = sud_pop, sd = sud_mc_se),
+    sud_lambda = ifelse(sud_lambda < 0, 0, sud_lambda),
+    sud_mc_poisson = rpois(1, lambda = sud_lambda)
+  ) %>%
   group_by(alpha_3_country) %>%
   mutate(
     row_id = as.character(row_number()),
     id = str_c(alpha_3_country, row_id, sep = "-")
   ) %>%
   ungroup() %>%
-  select (id, sud_pert) 
+  select (id, sud_mc_poisson) 
 
 
 # ----------
@@ -325,7 +338,7 @@ high_income_countries_paf <- high_income_countries_paf %>%
     ggtitle("Both")
 
   
-p1 + p2 + p3 + plot_layout(ncol = 2)
+p1 + p2 + p3 + plot_layout(ncol = 3, nrow = 1)
 
   
 # Proportion inclusion health
@@ -385,10 +398,4 @@ p1 + p2 + p3 + plot_layout(ncol = 2)
     geom_bar(position="stack", stat="identity")+
     ggtitle("Both")
 
-  
-p1 + p2 + p3 + plot_layout(ncol = 2)
-  
-  
-
-  
-  
+p1 + p2 + p3 + plot_layout(ncol = 3)
