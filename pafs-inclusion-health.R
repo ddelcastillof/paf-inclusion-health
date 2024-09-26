@@ -9,7 +9,7 @@
 # - SMRs for inclusion health groups based on a previous review https://doi.org/10.1016/S0140-6736(17)31869-X
 # - other data required for the analyses e.g. GDB death estimates and population sizes
 # 
-# CONTRIBUTORS: Rob Aldridge
+# CONTRIBUTORS: Rob Aldridge and Darwin Del Castillo
 # 
 # TO DOs: - fix missing homeless data for Argentina and Belgium.
 #         - make the age groups for the SMRs more comparable
@@ -215,7 +215,7 @@ population_numbers <-  input_population_numbers %>%
   select (id, gen_pop_tot) 
 
 # ----------
-# estimate total inclusion health for each country and calculate p
+# estimate total inclusion health for each country and calculate p (Add Markov Monte Carlo Gibbs Sampling here)
 # ----------
 
 inclusion_health_pop_est <- input_homeless_pop %>%
