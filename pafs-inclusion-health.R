@@ -17,8 +17,9 @@
 #         - add better data on male and female numbers for each country as at the moment assumption is based on 
 #           UK data and 80% M 20% F
 #         - add in population numbers for each country by age and sex
-#         - Model the inclusion health overlap using ? Poisson capture recapture methods and MCM simulation
-#         - Model the inclusion health distribution by age and sex for each country
+#         - Model the inclusion health overlap using ? Poisson capture recapture methods and ***MCM simulation****
+#         - Model the inclusion health distribution by ***age*** and sex for each ***country***
+#         - Data visualizations
 # ----------
 
 
@@ -151,7 +152,7 @@ input_prison_pop <- input_prison_pop  %>%
     id = str_c(alpha_3_country, row_id, sep = "-")
   ) %>%
   ungroup() %>%
-  select (id, prison_mc_poisson) 
+  select (id, prison_mc_poisson)
 
 # ----------
 # clean the sud population data
@@ -218,11 +219,114 @@ population_numbers <-  input_population_numbers %>%
 # estimate total inclusion health for each country and calculate p (Add Markov Monte Carlo Gibbs Sampling here)
 # ----------
 
-inclusion_health_pop_est <- input_homeless_pop %>%
-  left_join(input_prison_pop, by = "id") %>%
-  left_join(input_sud_pop, by = "id") %>%
-  left_join(population_numbers, by = "id") %>%
-  rowwise() %>% 
+## Setting a Bayesian network
+### Assumptions
+#### Overlap Probabilities:
+##### Assume certain probabilities for the overlaps based on prior knowledge or literature. 
+###### - 0.2 overlap between homelessness and substance drug abusers
+###### - 0.4 overlap between substance drug abuse and incarceration
+###### - 0.2 overlap between incarceration and homelessness
+###### - 0.05 overlap between the three conditions
+#### (Reference: https://pubmed.ncbi.nlm.nih.gov/36660275/) [Only for H and SUD]
+##### Independence/Dependence: Let's assume independence between populations
+
+
+### 1. Joint to the dataset
+inclusion_health_pop_est <- reduce(list(input_homeless_pop, 
+                                        input_prison_pop, 
+                                        input_sud_pop, 
+                                        population_numbers), 
+                                   left_join, by = "id") %>% rowwise()
+
+### 2. Preparing packages 
+pacman::p_load("rjags", "coda")
+
+### 3. Calculating the mean counts on the population after the Monte Carlo simulation
+inclusion_health_pop_est$country <- rep(input_hic_country_list$alpha_3_country, each = 1000)
+
+subsets_by_country <- split(inclusion_health_pop_est, inclusion_health_pop_est$country)
+inclusion_health_pop_est_means <- data.frame(
+  country = character(),
+  mean_homeless = numeric(),
+  mean_prison = numeric(),
+  mean_sud = numeric(),
+  mean_pop_tot = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for(country in names(subsets_by_country)) {
+  subset <- subsets_by_country[[country]]
+  mean_homeless <- mean(subset$homeless_mc_poisson)
+  mean_prison <- mean(subset$prison_mc_poisson)
+  mean_sud <- mean(subset$sud_mc_poisson)
+  mean_pop_tot <- mean(subset$gen_pop_tot)
+  
+  inclusion_health_pop_est_means <- rbind(inclusion_health_pop_est_means, data.frame(
+    country = country,
+    mean_homeless = mean_homeless,
+    mean_prison = mean_prison,
+    mean_sud = mean_sud,
+    mean_pop_tot = mean_pop_tot
+  ))
+}
+
+# Data for JAGS
+data_jags <- list(
+  N_sim = sim_run,
+  n_H = inclusion_health_pop_est_means$mean_homeless,
+  n_P = inclusion_health_pop_est_means$mean_prison,
+  n_S = inclusion_health_pop_est_means$mean_sud,
+  N = inclusion_health_pop_est_means$mean_pop_tot
+)
+
+inits <- function() {
+  list(
+    p_HP = runif(1),
+    p_HS = runif(1),
+    p_PS = runif(1),
+    p_HPS = runif(1),
+    mu_H = mean(inclusion_health_pop_est$homeless_mc_poisson),
+    mu_P = mean(inclusion_health_pop_est$prison_mc_poisson),
+    mu_S = mean(inclusion_health_pop_est$sud_mc_poisson),
+    mu_N = mean(inclusion_health_pop_est$gen_pop_tot),
+    tau_H = 1 / var(inclusion_health_pop_est$homeless_mc_poisson),
+    tau_P = 1 / var(inclusion_health_pop_est$prison_mc_poisson),
+    tau_S = 1 / var(inclusion_health_pop_est$sud_mc_poisson),
+    tau_N = 1 / var(inclusion_health_pop_est$gen_pop_tot)
+  )
+}
+
+# Parameters to monitor
+params <- c("p_HP", "p_HS", "p_PS", "p_HPS", "n_HP", "n_HS", "n_PS", "n_HPS")
+
+# Create the model
+jags_model <- jags.model(
+  textConnection(model_string),
+  data = data_jags,
+  inits = inits,
+  n.chains = 3,
+  n.adapt = 1000
+)
+
+# Update (burn-in)
+update(jags_model, 1000)
+
+# Sample from the posterior
+samples <- coda.samples(
+  model = jags_model,
+  variable.names = params,
+  n.iter = 5000
+)
+
+# Summarize the MCMC samples
+summary(samples)
+
+# Plot the posterior distributions
+plot(samples)
+
+# Extract the samples for overlap counts
+overlaps <- as.mcmc(do.call(rbind, samples))
+
   mutate(
     overlap_homeless = rpert(1, min=0.01,mode=.66,max=1),
     overlap_prison = rpert(1, min=0.01,mode=.66,max=1),
