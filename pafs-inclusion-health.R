@@ -51,7 +51,7 @@ glimpse(input_country_region_codes)
 sim_run <- 1000
 
 # disable scientific notation
-options(scipen = 999)
+options(scipen = 999999)
 
 
 # ----------
