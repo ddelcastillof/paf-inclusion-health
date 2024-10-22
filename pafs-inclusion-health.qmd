@@ -83,8 +83,7 @@ high_income_countries_paf <- input_mortality_numbers %>%
   summarise(
     deaths = sum(val, na.rm = T),
     deaths_lci = sum(lower, na.rm = T),
-    deaths_uci = sum(upper, na.rm = T),
-    sim_run = sim_run
+    deaths_uci = sum(upper, na.rm = T)
   )%>%
   filter (deaths >50000)%>%
   left_join(input_country_name_clean, by = "country_name")%>%
@@ -96,12 +95,10 @@ high_income_countries_paf <- input_mortality_numbers %>%
                   sex_id == 2 ~ "Female",
                   sex_id == 3 ~ "Both"))
   ) %>%
-  uncount(sim_run) %>%
   group_by(alpha_3_country, sex) %>%
   mutate(
-    row_id = as.character(row_number()),
-    id = str_c(alpha_3_country, row_id, sep = "-"),
-    idsex = str_c(alpha_3_country, sex, row_id, sep = "-")
+    id = alpha_3_country,
+    idsex = str_c(alpha_3_country, sex, sep = "-")
   ) %>%
   ungroup() %>%
   select (id, deaths, sex, idsex) 
@@ -335,7 +332,7 @@ param_names <- c(
   "p_all_three"
 )
 
-# Initialize an empty dataframe
+# Creating an empty dataframe
 country_proportions_inclusion <- data.frame(
   country = character(),
   p_none = numeric(),
@@ -410,6 +407,7 @@ country_pop <- input_population_numbers %>%
 
 country_inclusion_pop_total <- country_proportions_inclusion %>% 
   left_join(country_pop) %>%
+  rename(id = country) %>%
   mutate(total_none = round(p_none*total_pop,0),
          total_sud_only = round(p_sud_only*total_pop,0),
          total_prison_only = round(p_prison_only*total_pop,0),
@@ -417,7 +415,9 @@ country_inclusion_pop_total <- country_proportions_inclusion %>%
          total_sud_prison = round(p_sud_prison*total_pop,0),
          total_sud_homeless = round(p_sud_homeless*total_pop,0),
          total_prison_homeless = round(p_prison_homeless*total_pop,0),
-         total_all_three = round(p_all_three*total_pop,0))
+         total_all_three = round(p_all_three*total_pop,0),
+         inclusion_health_pop_tot = rowSums(across(total_sud_only:total_all_three)),
+         prop_inc_health = rowSums(across(p_sud_only:p_all_three)))
 ```
 
 ## Calculating SMR for each country
@@ -457,26 +457,18 @@ skim(high_income_countries_paf)
 
 ```{r}
 #| name: calculating PAF
+#| message: FALSE
+#| warning: FALSE
 
-attr_deaths <- function(prop_inc_health, smr, deaths) 
-  {
-  (prop_inc_health * (smr - 1)) / (prop_inc_health * (smr - 1) + 1) * deaths
-}
+source("functions/functions.R")
 
-paf <- function(prop_inc_health, smr) 
-{
-  (prop_inc_health * (smr - 1)) / (prop_inc_health * (smr - 1) + 1)
-}
-
-
-high_income_countries_paf <- high_income_countries_paf %>%
-  left_join(inclusion_health_pop_est, by = "id") %>%
+high_income_countries_paf_sex <- high_income_countries_paf %>%
+  left_join(country_inclusion_pop_total, by = "id") %>%
   mutate(
-    gen_pop_tot = ifelse(sex == "Male", gen_pop_tot /2, gen_pop_tot),
-    gen_pop_tot = ifelse(sex == "Female", gen_pop_tot /2, gen_pop_tot),
-    inclusion_health_pop_tot = ifelse(sex == "Male", inclusion_health_pop_tot * 0.8, inclusion_health_pop_tot),
-    inclusion_health_pop_tot = ifelse(sex == "Female", inclusion_health_pop_tot * 0.2, inclusion_health_pop_tot),
-    prop_inc_health = inclusion_health_pop_tot / gen_pop_tot
+    inclusion_health_pop_tot = ifelse(sex == "Male", inclusion_health_pop_tot/2, inclusion_health_pop_tot),
+    inclusion_health_pop_tot = ifelse(sex == "Female", inclusion_health_pop_tot/2, inclusion_health_pop_tot),
+    prop_inc_health = ifelse(sex == "Male", prop_inc_health * 0.8, prop_inc_health),
+    prop_inc_health = ifelse(sex == "Female", prop_inc_health * 0.2, prop_inc_health)
   ) %>%
     rowwise() %>% 
     mutate(
@@ -484,11 +476,10 @@ high_income_countries_paf <- high_income_countries_paf %>%
       smr = ifelse(sex == "Female", rnorm(1, mean=log_smr.point_est_female, sd = log_smr.se_female), smr),
       smr = ifelse(sex == "Both", rnorm(1, mean=log_smr.point_est_both, sd = log_smr.se_both), smr),
       attr_deaths = attr_deaths(prop_inc_health, smr, deaths),
-      paf = paf (prop_inc_health, smr),
-      alpha_3_country = substr(id,1,3)
+      paf = paf (prop_inc_health, smr)
     ) %>% 
     ungroup() %>% 
-    group_by(alpha_3_country, sex)%>% 
+    group_by(id, sex)%>% 
     summarise(
       paf_50 = quantile(paf, probs=(0.5)),
       paf_025 = quantile(paf, probs=(0.025)),
@@ -507,91 +498,97 @@ high_income_countries_paf <- high_income_countries_paf %>%
     mutate(
       not_attr_deaths_50 = deaths_50 - attr_deaths_50
     )
+```
 
+```{r}
+#| name: graphs
+#| warning: FALSE
+#| message: FALSE
 
-# PAF
-  p1 <- high_income_countries_paf %>%
+# Total PAF
+  p1_1 <- high_income_countries_paf_sex %>%
     filter(sex=="Male") %>%
-    ggplot(aes(x=alpha_3_country, y=paf_50))+ 
-    geom_bar( stat="identity", fill="forestgreen", alpha=0.5) +
-    geom_errorbar( aes(x=alpha_3_country, ymin=paf_025, ymax=paf_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
+    ggplot(aes(x=id, y=paf_50))+ 
+    geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
+    geom_errorbar(aes(x=id, ymin=paf_025, ymax=paf_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
     ggtitle("Male")
   
-  p2 <- high_income_countries_paf %>%
+  p1_2 <- high_income_countries_paf_sex %>%
     filter(sex=="Female") %>%
-    ggplot(aes(x=alpha_3_country, y=paf_50))+ 
-    geom_bar( stat="identity", fill="forestgreen", alpha=0.5) +
-    geom_errorbar( aes(x=alpha_3_country, ymin=paf_025, ymax=paf_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
+    ggplot(aes(x=id, y=paf_50))+ 
+    geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
+    geom_errorbar(aes(x=id, ymin=paf_025, ymax=paf_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
     ggtitle("Female")
   
-  p3 <-  high_income_countries_paf %>%
+  p1_3 <-  high_income_countries_paf_sex %>%
     filter(sex=="Both") %>%
-    ggplot(aes(x=alpha_3_country, y=paf_50))+ 
-    geom_bar( stat="identity", fill="forestgreen", alpha=0.5) +
-    geom_errorbar( aes(x=alpha_3_country, ymin=paf_025, ymax=paf_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
+    ggplot(aes(x=id, y=paf_50))+ 
+    geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
+    geom_errorbar( aes(x=id, ymin=paf_025, ymax=paf_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
     ggtitle("Both")
 
   
-p1 + p2 + p3 + plot_layout(ncol = 3, nrow = 1)
-
+p1_1 + p1_2 + p1_3 + plot_layout(ncol = 3, nrow = 1)
   
 # Proportion inclusion health
-  high_income_countries_paf %>%
-    filter(sex=="Both") %>%
-    ggplot(aes(x=alpha_3_country, y=prop_inc_health_50))+ 
-    geom_bar(  stat="identity", fill="forestgreen", alpha=0.5) +
-    geom_errorbar( aes(x=alpha_3_country, ymin=prop_inc_health_025, ymax=prop_inc_health_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
-    ggtitle("Proportion inclusion health")
+p2 <- high_income_countries_paf_sex %>%
+      filter(sex=="Both") %>%
+      ggplot(aes(x=id, y=prop_inc_health_50))+ 
+      geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
+      geom_errorbar( aes(x=id, ymin=prop_inc_health_025, ymax=prop_inc_health_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
+      ggtitle("Proportion inclusion health")
   
-  
+p2
+
 # SMR
-  high_income_countries_paf %>%
-    filter(sex=="Both") %>%
-    ggplot( aes(x=alpha_3_country, y=smr_50))+ 
-    geom_bar( stat="identity", fill="forestgreen", alpha=0.5) +
-    geom_errorbar( aes(x=alpha_3_country, ymin=smr_025, ymax=smr_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
-    ggtitle("SMR")
-  
+p3 <-  high_income_countries_paf_sex %>%
+       filter(sex=="Both") %>%
+       ggplot(aes(x=id, y=smr_50))+ 
+       geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
+       geom_errorbar(aes(x=id, ymin=smr_025, ymax=smr_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
+       ggtitle("SMR")
+
+p3  
 
 #total and attributable deaths  
-  p1 <- high_income_countries_paf %>%
+  p4_1 <- high_income_countries_paf_sex %>%
     filter(sex=="Male") %>%
-    select(alpha_3_country, not_attr_deaths_50, attr_deaths_50)%>% 
+    select(id, not_attr_deaths_50, attr_deaths_50)%>% 
     pivot_longer(
       cols = not_attr_deaths_50:attr_deaths_50,
       names_to = "deaths",
       values_to = "counts"
     ) %>% 
-    ggplot(aes(fill=deaths, y=alpha_3_country, x=counts)) + 
+    ggplot(aes(fill=deaths, y=id, x=counts)) + 
     geom_bar(position="stack", stat="identity")+
     ggtitle("Male")
   
   
-  p2 <- high_income_countries_paf %>%
+  p4_2 <- high_income_countries_paf_sex %>%
     filter(sex=="Female") %>%
-    select(alpha_3_country, not_attr_deaths_50, attr_deaths_50)%>% 
+    select(id, not_attr_deaths_50, attr_deaths_50)%>% 
     pivot_longer(
       cols = not_attr_deaths_50:attr_deaths_50,
       names_to = "deaths",
       values_to = "counts"
     ) %>% 
-    ggplot(aes(fill=deaths, y=alpha_3_country, x=counts)) + 
+    ggplot(aes(fill=deaths, y=id, x=counts)) + 
     geom_bar(position="stack", stat="identity")+
     ggtitle("Female")
   
   
-  p3 <- high_income_countries_paf %>%
+  p4_3 <- high_income_countries_paf_sex %>%
     filter(sex=="Both") %>%
-    select(alpha_3_country, not_attr_deaths_50, attr_deaths_50)%>% 
+    select(id, not_attr_deaths_50, attr_deaths_50)%>% 
     pivot_longer(
       cols = not_attr_deaths_50:attr_deaths_50,
       names_to = "deaths",
       values_to = "counts"
     ) %>% 
-    ggplot(aes(fill=deaths, y=alpha_3_country, x=counts)) + 
+    ggplot(aes(fill=deaths, y=id, x=counts)) + 
     geom_bar(position="stack", stat="identity")+
     ggtitle("Both")
 
-p1 + p2 + p3 + plot_layout(ncol = 3)
+p4_1 + p4_2 + p4_3 + plot_layout(ncol = 2)
 ```
 
