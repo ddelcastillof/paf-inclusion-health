@@ -1,2 +1,1 @@
-# paf-inclusion-health
-Estimating PAFs for inclusion health groups
+# Estimating PAFs due to social exclusion groups in HICs
