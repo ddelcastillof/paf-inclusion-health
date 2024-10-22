@@ -7,8 +7,8 @@ Data sources at present are not fully referenced. In its current version, the da
 - Other data required for the analyses, e.g. GDB death estimates and population sizes, were obtained from public sources.
 
 ## Authors
-Created by Professor Rob Aldridge and modified by me.
-Forked from @UCL-Public-Health-Data-Science
+Created by Professor [Rob Aldridge](https://github.com/rwaldridge) and modified by me.
+Forked from [UCL-Public-Health-Data-Science](https://github.com/UCL-Public-Health-Data-Science/paf-inclusion-health)
 
 ## To-do list
 - [ ] Fix missing homeless data for Argentina and Belgium (not a priority, probably requires primary data sources).
