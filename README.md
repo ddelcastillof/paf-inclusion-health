@@ -7,7 +7,7 @@ Data sources at present are not fully referenced. In its current version, the da
 - Other data required for the analyses, e.g. GDB death estimates and population sizes, were obtained from public sources.
 
 ## Authors
-Originally created by @rwaldridge and modified by me.
+Created by Professor Rob Aldridge and modified by me.
 Forked from @UCL-Public-Health-Data-Science
 
 ## To-do list
