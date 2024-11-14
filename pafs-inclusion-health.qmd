@@ -6,8 +6,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r}
-#| name: setup
+```{r setup}
 #| include: FALSE
 knitr::opts_chunk$set(echo = TRUE, 
                       message = FALSE, 
@@ -15,8 +14,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE)
 ```
 
-```{r}
-#| name: packages
+```{r packages}
 pacman::p_load(googlesheets4, 
                metafor, 
                tidyverse, 
@@ -27,8 +25,7 @@ pacman::p_load(googlesheets4,
                coda)
 ```
 
-```{r}
-#| name: importing datasets
+```{r importing datasets}
 #| warning: FALSE
 
 googlesheets4::gs4_deauth()
@@ -46,19 +43,14 @@ input_hic_country_list<- read_sheet("https://docs.google.com/spreadsheets/d/1onG
 glimpse(input_country_region_codes)
 ```
 
-```{r}
-#| name: additional settings
-
+```{r additional settings}
 ## setting the number of iterations
 sim_run <- 1000
 ## disable scientific notation
 options(scipen = 999999)
 ```
 
-# Cleaning the SMR data
-
-```{r}
-#| name: basic cleaning
+```{r basic cleaning}
 # filter the data to only include non-excluded or duplicate SMR data
 smr_filter_all_cause <- input_smr_all %>%
   filter(Outcome_measure=="SMR", ICD10_chapter_number==0, is.na(Duplicate), is.na(Exclude), !is.na(lci), !is.na(uci)) %>%
@@ -68,13 +60,10 @@ smr_filter_all_cause <- input_smr_all %>%
 
 # create standard error estimates from confidence intervals from study
 smr_filter_all_cause$sei <- (log(smr_filter_all_cause$uci/smr_filter_all_cause$lci))/3.92
-
 ```
 
-```{r}
-#| name: advanced cleaning and monte carlo
+```{r advanced cleaning and monte carlo}
 #| warning: FALSE
-
 # clean the total mortality data
 glimpse(input_mortality_numbers)
 
@@ -200,23 +189,10 @@ population_numbers <-  input_population_numbers %>%
     id = str_c(alpha_3_country, row_id, sep = "-")
   ) %>%
   ungroup() %>%
-  select (id, gen_pop_tot) 
-
+  select (id, gen_pop_tot)
 ```
-# Estimate total inclusion health for each country and calculate p
-## Setting a Bayesian network
-Assumptions \
-Overlap Probabilities: \
-Assume certain probabilities for the overlaps based on prior knowledge or literature. \
-- 0.2 overlap between homelessness and substance drug abusers \
-- 0.4 overlap between substance drug abuse and incarceration \
-- 0.2 overlap between incarceration and homelessness \
-- 0.05 overlap between the three conditions \
-(Reference: \href{https://pubmed.ncbi.nlm.nih.gov/36660275/}) [Only for H and SUD] \
-Independence/Dependence: Let's assume independence between populations \
 
-```{r}
-#| name: gibbs sampling
+```{r gibbs sampling}
 #| warning: FALSE
 
 # Joint to the dataset
@@ -380,13 +356,10 @@ for (country in names(jags_results)) {
   # Append the row to the results dataframe
   country_proportions_inclusion <- rbind(country_proportions_inclusion, country_row)
 }
-
 ```
 
-```{r}
-#| name: final mods in results data frame
+```{r final mods in results data frame}
 #| warning: FALSE
-
 # Calculating total population affected by any of these conditions per country
 ## Creating total population column in country_proportions_inclusion data frame
 
@@ -420,11 +393,7 @@ country_inclusion_pop_total <- country_proportions_inclusion %>%
          prop_inc_health = rowSums(across(p_sud_only:p_all_three)))
 ```
 
-## Calculating SMR for each country
-
-```{r}
-#| name: random effects model for SMR
-
+```{r random effects model for SMR}
 smr_filter_all_cause_both <- smr_filter_all_cause %>%
   filter(sex=="Both") 
   
@@ -453,10 +422,7 @@ skim(high_income_countries_paf)
 
 ```
 
-## Calculating PAFs for each country
-
-```{r}
-#| name: calculating PAF
+```{r calculating PAFs}
 #| message: FALSE
 #| warning: FALSE
 
@@ -500,8 +466,7 @@ high_income_countries_paf_sex <- high_income_countries_paf %>%
     )
 ```
 
-```{r}
-#| name: graphs
+```{r graphs}
 #| warning: FALSE
 #| message: FALSE
 
@@ -510,48 +475,46 @@ high_income_countries_paf_sex <- high_income_countries_paf %>%
     filter(sex=="Male") %>%
     ggplot(aes(x=id, y=paf_50))+ 
     geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
-    geom_errorbar(aes(x=id, ymin=paf_025, ymax=paf_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
-    ggtitle("Male")
+    xlab("Countries") + ylab("Population attibutable fraction") +
+    ggtitle("Males")
   
   p1_2 <- high_income_countries_paf_sex %>%
     filter(sex=="Female") %>%
     ggplot(aes(x=id, y=paf_50))+ 
     geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
-    geom_errorbar(aes(x=id, ymin=paf_025, ymax=paf_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
-    ggtitle("Female")
+    xlab("Countries") + ylab("Population attibutable fraction") +
+    ggtitle("Females")
   
   p1_3 <-  high_income_countries_paf_sex %>%
     filter(sex=="Both") %>%
     ggplot(aes(x=id, y=paf_50))+ 
     geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
-    geom_errorbar( aes(x=id, ymin=paf_025, ymax=paf_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
+    xlab("Countries") + ylab("Population attibutable fraction") +
     ggtitle("Both")
-
   
-p1_1 + p1_2 + p1_3 + plot_layout(ncol = 3, nrow = 1)
+## Make Y-axis more similar
+## Change colors for sex
+## Eliminate CI 
   
 # Proportion inclusion health
 p2 <- high_income_countries_paf_sex %>%
       filter(sex=="Both") %>%
       ggplot(aes(x=id, y=prop_inc_health_50))+ 
       geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
-      geom_errorbar( aes(x=id, ymin=prop_inc_health_025, ymax=prop_inc_health_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
       ggtitle("Proportion inclusion health")
   
-p2
 
 # SMR
 p3 <-  high_income_countries_paf_sex %>%
        filter(sex=="Both") %>%
        ggplot(aes(x=id, y=smr_50))+ 
        geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
-       geom_errorbar(aes(x=id, ymin=smr_025, ymax=smr_975), width=0.4, colour="forestgreen", alpha=0.9, size=1.5) +
-       ggtitle("SMR")
+       ggtitle("Standarized mortality ratios by countries")
 
-p3  
 
 #total and attributable deaths  
-  p4_1 <- high_income_countries_paf_sex %>%
+
+p4_1 <- high_income_countries_paf_sex %>%
     filter(sex=="Male") %>%
     select(id, not_attr_deaths_50, attr_deaths_50)%>% 
     pivot_longer(
@@ -560,11 +523,17 @@ p3
       values_to = "counts"
     ) %>% 
     ggplot(aes(fill=deaths, y=id, x=counts)) + 
-    geom_bar(position="stack", stat="identity")+
-    ggtitle("Male")
+    xlab("Number of attributable deaths") + ylab("Countries") +
+    labs(fill = "Deaths") +
+    geom_bar(position="stack", stat="identity") +
+    ggtitle("Males") +
+    scale_fill_manual(
+    values = c("attr_deaths_50" = "coral3", "not_attr_deaths_50" = "cyan3"),
+    labels = c("attr_deaths_50" = "Attributable Deaths (p50)", 
+               "not_attr_deaths_50" = "Non-Attributable Deaths (p50)")
+  )
   
-  
-  p4_2 <- high_income_countries_paf_sex %>%
+p4_2 <- high_income_countries_paf_sex %>%
     filter(sex=="Female") %>%
     select(id, not_attr_deaths_50, attr_deaths_50)%>% 
     pivot_longer(
@@ -573,22 +542,128 @@ p3
       values_to = "counts"
     ) %>% 
     ggplot(aes(fill=deaths, y=id, x=counts)) + 
+    xlab("Number of attributable deaths") + ylab("Countries") +
+    labs(fill = "Deaths") + 
     geom_bar(position="stack", stat="identity")+
-    ggtitle("Female")
+    ggtitle("Females") +
+    scale_fill_manual(
+    values = c("attr_deaths_50" = "coral3", "not_attr_deaths_50" = "cyan3"),
+    labels = c("attr_deaths_50" = "Attributable Deaths (p50)", 
+               "not_attr_deaths_50" = "Non-Attributable Deaths (p50)")
+  )
   
-  
-  p4_3 <- high_income_countries_paf_sex %>%
-    filter(sex=="Both") %>%
-    select(id, not_attr_deaths_50, attr_deaths_50)%>% 
-    pivot_longer(
-      cols = not_attr_deaths_50:attr_deaths_50,
-      names_to = "deaths",
-      values_to = "counts"
-    ) %>% 
-    ggplot(aes(fill=deaths, y=id, x=counts)) + 
-    geom_bar(position="stack", stat="identity")+
-    ggtitle("Both")
-
-p4_1 + p4_2 + p4_3 + plot_layout(ncol = 2)
+p4_3 <- high_income_countries_paf_sex %>%
+  filter(sex == "Both") %>%
+  select(id, not_attr_deaths_50, attr_deaths_50) %>% 
+  pivot_longer(
+    cols = not_attr_deaths_50:attr_deaths_50,
+    names_to = "deaths",
+    values_to = "counts"
+  ) %>%
+  ggplot(aes(fill = deaths, y = id, x = counts)) + 
+  xlab("Number of attributable deaths") + 
+  ylab("Countries") +
+  labs(fill = "Deaths") + 
+  geom_bar(position = "stack", stat = "identity") +
+  ggtitle("Both") +
+  scale_fill_manual(
+    values = c("attr_deaths_50" = "coral3", "not_attr_deaths_50" = "cyan3"),
+    labels = c("attr_deaths_50" = "Attributable Deaths (p50)", 
+               "not_attr_deaths_50" = "Non-Attributable Deaths (p50)")
+  )
 ```
 
+# Summary of analysis
+## Packages to be used
+The packages used in this project were the following: \
+- googlesheets4: to import data from Google Sheets \
+- metafor: to calculate the SMR based on the meta-analysis data \
+- tidyverse: data wrangling and visualization \
+- skimr: to summarize the data after importation or manipulation \
+- mc2d: to run Monte Carlo simulations and setting prior distributions for Gibbs sampling \
+- patchwork: to arrange multiple plots \
+- rjags: to run the Bayesian Gibbs Sampling for estimating the overlapping proportions \
+- coda: to summarize the results of the Bayesian Gibbs Sampling \
+
+```{r packages, eval=FALSE}
+```
+
+## Data import and basic cleaning
+First, I imported the data from the Google Sheets verifying the data types and the structure of the data.
+Additionally, I assigned the number of iterations to the vector `sim_run` and deactivated the scientific notation for the analysis.
+
+```{r importing datasets, eval=FALSE}
+```
+
+```{r additional settings, eval=FALSE}
+```
+
+Then, I filtered the SMR data from the `input_smr_all` object into the new object `smr_filter_all_cause` to include only the non-excluded or duplicate data and calculated the standard error estimates from the confidence intervals.
+
+```{r basic cleaning, eval=FALSE}
+```
+
+## Further cleaning and Monte Carlo simulations
+I cleaned the total mortality data, the homeless population data, the prison population data, the substance use disorder (SUD) population data, and the total population data. I also ran Monte Carlo simulations for the homeless, prison, and SUD populations to estimate the total population affected by these conditions per country with 1000 iteration to account for uncertainty.
+
+```{r advanced cleaning and monte carlo, eval=FALSE}
+```
+
+## Estimating the total inclusion health groups for each country and calculating overlaps between populations
+I set the Bayesian network assumptions for the Gibbs Sampling model. The full set of assumptions for the prior distributions of the overlap between inclusion health groups are: \
+- 0.2 overlap between homelessness and substance drug abusers \
+- 0.4 overlap between substance drug abuse and incarceration \
+- 0.2 overlap between incarceration and homelessness \
+- 0.05 overlap between the three conditions \
+The assumption for the overlap between homelessness and substance drug disorder come from previous literature (\href{https://pubmed.ncbi.nlm.nih.gov/36660275/}{PMID: 36660275}). The other overlaps are based on good faith (no better literature was found). I also assumed independence between populations.
+
+The vector `alpha` contains the hyperparameters to specify the Dirichlet distribution for the prior probabilities of the Gibbs Sampling model. Given the probabilities assumed, the counts for the Dirichlet distribution sums 60. Then, the JAGS model string was defined, and the parameters to monitor were set. I ran the Gibbs Sampling model for each country using a loop and stored the results. Finally, I summarized the results of the posterior means for each country in a data frame.
+
+```{r gibbs sampling, eval=FALSE}
+```
+
+After obtaining the proportions, I calculated the total population affected by any of these conditions per country and the proportion of the population affected by inclusion health. 
+
+```{r final mods in results data frame, eval=FALSE}
+```
+
+## Calculating SMRs and PAFs
+I also calculated the SMR for each country using data from the systematic review and applying a random effects meta-analysis. The results were stored in the `res_smr_all_cause_both`,
+
+```{r random effects model for SMR, eval=FALSE}
+```
+
+I calculated the PAFs for each country based on the inclusion health proportions and the SMR data. \
+The functions to calculate the PAFs and the attributable deaths are stored in the `functions.R` file.
+
+```{r calculating PAFs, eval=FALSE}
+```
+
+## Graphs
+```{r graphs, eval=FALSE}
+```
+
+Lastly, I created graphs that will help with the visualization of the results. \
+The first set of graphs shows the PAFs for inclusion health for each country stratified by sex.
+
+```{r fig.width=10, fig.height=10, fig.align='center', include=TRUE, echo=FALSE}
+p1_1 + p1_2 + plot_layout(ncol = 2, nrow = 1)
+```
+
+Second, I created a graph showing the proportion of inclusion health for each country.
+
+```{r fig.width=10, fig.height=10, fig.align='center', include=TRUE, echo=FALSE}
+p2
+```
+
+Third, I created a graph showing the SMR for each country.
+
+```{r fig.width=10, fig.height=10, fig.align='center', include=TRUE, echo=FALSE}
+p3
+```
+
+Finally, I created a graph showing the total and attributable deaths for each country stratified by sex.
+
+```{r fig.width=10, fig.height=10, fig.align='center', include=TRUE, echo=FALSE}
+p4_1 + p4_2 + p4_3 + plot_layout(ncol = 2)
+```
