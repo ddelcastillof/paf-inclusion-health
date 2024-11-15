@@ -501,7 +501,8 @@ p2 <- high_income_countries_paf_sex %>%
       filter(sex=="Both") %>%
       ggplot(aes(x=id, y=prop_inc_health_50))+ 
       geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
-      ggtitle("Proportion inclusion health")
+      xlab("Countries") + ylab("Proportion inclusion heealth (p50)") +
+      ggtitle("Proportion of socially-excluded groups by countries")
   
 
 # SMR
@@ -509,6 +510,7 @@ p3 <-  high_income_countries_paf_sex %>%
        filter(sex=="Both") %>%
        ggplot(aes(x=id, y=smr_50))+ 
        geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
+       xlab("Countries") + ylab("Standarized mortality ratios (p50)") +
        ggtitle("Standarized mortality ratios by countries")
 
 
@@ -617,7 +619,7 @@ I set the Bayesian network assumptions for the Gibbs Sampling model. The full se
 - 0.05 overlap between the three conditions \
 The assumption for the overlap between homelessness and substance drug disorder come from previous literature (\href{https://pubmed.ncbi.nlm.nih.gov/36660275/}{PMID: 36660275}). The other overlaps are based on good faith (no better literature was found). I also assumed independence between populations.
 
-The vector `alpha` contains the hyperparameters to specify the Dirichlet distribution for the prior probabilities of the Gibbs Sampling model. Given the probabilities assumed, the counts for the Dirichlet distribution sums 60. Then, the JAGS model string was defined, and the parameters to monitor were set. I ran the Gibbs Sampling model for each country using a loop and stored the results. Finally, I summarized the results of the posterior means for each country in a data frame.
+The vector `alpha` contains the hyperparameters to specify the Dirichlet distribution for the prior probabilities of the Gibbs Sampling model. Given the prior probabilities assumed, the counts for the Dirichlet distribution sums 60. Then, the JAGS model string was defined, and the parameters to monitor were set. I ran the Gibbs Sampling model for each country using a loop and stored the results. Finally, I summarized the results of the posterior means for each country in a data frame.
 
 ```{r gibbs sampling, eval=FALSE}
 ```
