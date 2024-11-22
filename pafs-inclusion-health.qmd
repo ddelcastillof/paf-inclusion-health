@@ -1,6 +1,6 @@
 ---
 title: "PAFs for inclusion health"
-format: pdf
+format: docx
 author: Rob Aldridge & Darwin Del Castillo
 editor_options: 
   chunk_output_type: console
@@ -22,7 +22,8 @@ pacman::p_load(googlesheets4,
                mc2d, 
                patchwork, 
                rjags, 
-               coda)
+               coda,
+               ggpubfigs)
 ```
 
 ```{r importing datasets}
@@ -474,33 +475,34 @@ high_income_countries_paf_sex <- high_income_countries_paf %>%
   p1_1 <- high_income_countries_paf_sex %>%
     filter(sex=="Male") %>%
     ggplot(aes(x=id, y=paf_50))+ 
-    geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
+    geom_bar(stat="identity", fill="#004488", alpha=0.5) +
     xlab("Countries") + ylab("Population attibutable fraction") +
-    ggtitle("Males")
+    ggtitle("Males") +
+    ylim(0, 0.15)
   
   p1_2 <- high_income_countries_paf_sex %>%
     filter(sex=="Female") %>%
     ggplot(aes(x=id, y=paf_50))+ 
-    geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
+    geom_bar(stat="identity", fill="#BB5566", alpha=0.5) +
     xlab("Countries") + ylab("Population attibutable fraction") +
-    ggtitle("Females")
+    ggtitle("Females") +
+    ylim(0, 0.15)
   
   p1_3 <-  high_income_countries_paf_sex %>%
     filter(sex=="Both") %>%
     ggplot(aes(x=id, y=paf_50))+ 
-    geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
+    geom_bar(stat="identity", fill="#DDAA33", alpha=0.5) +
     xlab("Countries") + ylab("Population attibutable fraction") +
-    ggtitle("Both")
+    ggtitle("Both") +
+    ylim(0, 0.15)
   
-## Make Y-axis more similar
 ## Change colors for sex
-## Eliminate CI 
-  
+
 # Proportion inclusion health
 p2 <- high_income_countries_paf_sex %>%
       filter(sex=="Both") %>%
-      ggplot(aes(x=id, y=prop_inc_health_50))+ 
-      geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
+      ggplot(aes(x=id, y=prop_inc_health_50, fill = id))+ 
+      geom_bar(stat="identity", alpha=0.5, fill = "#44AA99") +
       xlab("Countries") + ylab("Proportion inclusion heealth (p50)") +
       ggtitle("Proportion of socially-excluded groups by countries")
   
@@ -508,8 +510,8 @@ p2 <- high_income_countries_paf_sex %>%
 # SMR
 p3 <-  high_income_countries_paf_sex %>%
        filter(sex=="Both") %>%
-       ggplot(aes(x=id, y=smr_50))+ 
-       geom_bar(stat="identity", fill="forestgreen", alpha=0.5) +
+       ggplot(aes(x=id, y=smr_50, fill= id )) + 
+       geom_bar(stat="identity", alpha=0.5, fill ="#44AA99") +
        xlab("Countries") + ylab("Standarized mortality ratios (p50)") +
        ggtitle("Standarized mortality ratios by countries")
 
@@ -530,7 +532,7 @@ p4_1 <- high_income_countries_paf_sex %>%
     geom_bar(position="stack", stat="identity") +
     ggtitle("Males") +
     scale_fill_manual(
-    values = c("attr_deaths_50" = "coral3", "not_attr_deaths_50" = "cyan3"),
+    values = c("attr_deaths_50" = "#CC79A7", "not_attr_deaths_50" = "#0072B2"),
     labels = c("attr_deaths_50" = "Attributable Deaths (p50)", 
                "not_attr_deaths_50" = "Non-Attributable Deaths (p50)")
   )
@@ -549,7 +551,7 @@ p4_2 <- high_income_countries_paf_sex %>%
     geom_bar(position="stack", stat="identity")+
     ggtitle("Females") +
     scale_fill_manual(
-    values = c("attr_deaths_50" = "coral3", "not_attr_deaths_50" = "cyan3"),
+    values = c("attr_deaths_50" = "#CC79A7", "not_attr_deaths_50" = "#0072B2"),
     labels = c("attr_deaths_50" = "Attributable Deaths (p50)", 
                "not_attr_deaths_50" = "Non-Attributable Deaths (p50)")
   )
@@ -569,7 +571,7 @@ p4_3 <- high_income_countries_paf_sex %>%
   geom_bar(position = "stack", stat = "identity") +
   ggtitle("Both") +
   scale_fill_manual(
-    values = c("attr_deaths_50" = "coral3", "not_attr_deaths_50" = "cyan3"),
+    values = c("attr_deaths_50" = "#CC79A7", "not_attr_deaths_50" = "#0072B2"),
     labels = c("attr_deaths_50" = "Attributable Deaths (p50)", 
                "not_attr_deaths_50" = "Non-Attributable Deaths (p50)")
   )
@@ -586,6 +588,7 @@ The packages used in this project were the following: \
 - patchwork: to arrange multiple plots \
 - rjags: to run the Bayesian Gibbs Sampling for estimating the overlapping proportions \
 - coda: to summarize the results of the Bayesian Gibbs Sampling \
+- ggpubfigs: to use color-blind-friendly palettes \
 
 ```{r packages, eval=FALSE}
 ```
