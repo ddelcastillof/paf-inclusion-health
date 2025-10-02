@@ -22,8 +22,8 @@ pacman::p_load(googlesheets4,
                mc2d, 
                patchwork, 
                rjags, 
-               coda,
-               ggpubfigs)
+               coda)
+pacman::p_load_gh("JLSteenwyk/ggpubfigs")
 ```
 
 ```{r importing datasets}
@@ -577,6 +577,67 @@ p4_3 <- high_income_countries_paf_sex %>%
   )
 ```
 
+```{r jaccard-heatmap-build}
+#| warning: FALSE
+#| message: FALSE
+
+# Build a Jaccard heatmap (pairwise overlaps) from current posterior samples
+# Assumes `jags_results` exists (as created earlier in the script)
+
+jaccard_from_samples <- function(samples_mcmc_list) {
+  mat <- as.matrix(samples_mcmc_list)  # combine chains
+  needed <- paste0("p[", 1:8, "]")
+  # Stop early if the required columns are missing
+  if (!all(needed %in% colnames(mat))) {
+    stop("Missing p[1:8] in MCMC samples")
+  }
+  p2 <- mat[, "p[2]"]; p3 <- mat[, "p[3]"]; p4 <- mat[, "p[4]"]
+  p5 <- mat[, "p[5]"]; p6 <- mat[, "p[6]"]; p7 <- mat[, "p[7]"]; p8 <- mat[, "p[8]"]
+
+  # Marginals
+  pSUD  <- p2 + p5 + p6 + p8
+  pPRIS <- p3 + p5 + p7 + p8
+  pHOME <- p4 + p6 + p7 + p8
+
+  # Intersections
+  i_SP <- p5 + p8
+  i_SH <- p6 + p8
+  i_PH <- p7 + p8
+
+  # Jaccard indices (guard against division by ~0)
+  J_SP <- i_SP / pmax(pSUD + pPRIS - i_SP, .Machine$double.eps)
+  J_SH <- i_SH / pmax(pSUD + pHOME - i_SH, .Machine$double.eps)
+  J_PH <- i_PH / pmax(pPRIS + pHOME - i_PH, .Machine$double.eps)
+
+  tibble::tibble(
+    pair = c("SUD–Prison", "SUD–Homeless", "Prison–Homeless"),
+    J_median = c(stats::median(J_SP), stats::median(J_SH), stats::median(J_PH)),
+    J_lci    = c(stats::quantile(J_SP, 0.025), stats::quantile(J_SH, 0.025), stats::quantile(J_PH, 0.025)),
+    J_uci    = c(stats::quantile(J_SP, 0.975), stats::quantile(J_SH, 0.975), stats::quantile(J_PH, 0.975))
+  )
+}
+
+# Compute summary across all countries present in jags_results
+jaccard_all <- purrr::imap_dfr(
+  jags_results,
+  ~ jaccard_from_samples(.x) %>% dplyr::mutate(country = .y),
+  .progress = FALSE
+)
+
+# Heatmap plot object
+p_jaccard_heatmap <- ggplot2::ggplot(jaccard_all, ggplot2::aes(x = pair, y = country, fill = J_median)) +
+  ggplot2::geom_tile() +
+  ggplot2::geom_text(ggplot2::aes(label = sprintf("%.1f%%", 100 * J_median)), size = 3) +
+  ggplot2::scale_fill_gradient(limits = c(0, 1), low = "white", high = "#004488", name = "Legend") +
+  ggplot2::labs(
+    x = NULL, y = NULL,
+    title = "Pairwise overlap by country"
+  ) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+```
+```
+
 # Summary of analysis
 ## Packages to be used
 The packages used in this project were the following: \
@@ -671,4 +732,8 @@ Finally, I created a graph showing the total and attributable deaths for each co
 
 ```{r fig.width=10, fig.height=10, fig.align='center', include=TRUE, echo=FALSE}
 p4_1 + p4_2 + p4_3 + plot_layout(ncol = 2)
+```
+
+```{r fig.width=10, fig.height=10, fig.align='center', include=TRUE, echo=FALSE}
+p_jaccard_heatmap
 ```
